@@ -2,6 +2,8 @@ tasks:
 
   example-task:
     interval: 1m
+    retention: 10m
+    max-failures: 1
     runtime: bash
     execute: |
       echo ok

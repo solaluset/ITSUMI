@@ -1,5 +1,17 @@
-from pydantic import BaseModel, validator
+from typing import Annotated
+
+from pydantic import BaseModel, BeforeValidator
 from timelength import TimeLength
+
+
+def _parse_duration(value: str) -> float:
+    parsed = TimeLength(value)
+    if not parsed.result.success:
+        raise ValueError(f"invalid duration: {value}")
+    return parsed.result.seconds
+
+
+Duration = Annotated[float, BeforeValidator(_parse_duration)]
 
 
 class Runtime(BaseModel):
@@ -11,16 +23,9 @@ class RuntimesConfig(BaseModel):
 
 
 class Task(BaseModel):
-    interval: float
+    interval: Duration
     runtime: str
     execute: str
-
-    @validator("interval", pre=True)
-    def _parse_interval(cls, value: str) -> float:
-        parsed = TimeLength(value)
-        if not parsed.result.success:
-            raise ValueError(f"invalid interval: {value}")
-        return parsed.result.seconds
 
 
 class TasksConfig(BaseModel):
