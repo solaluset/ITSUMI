@@ -1,7 +1,11 @@
 from typing import Annotated
 
-from pydantic import BaseModel, BeforeValidator
+from pydantic import BaseModel, BeforeValidator, ConfigDict
 from timelength import TimeLength
+
+
+class Model(BaseModel):
+    model_config = ConfigDict(alias_generator=lambda x: x.replace("_", "-"))
 
 
 def _parse_duration(value: str) -> float:
@@ -14,19 +18,21 @@ def _parse_duration(value: str) -> float:
 Duration = Annotated[float, BeforeValidator(_parse_duration)]
 
 
-class Runtime(BaseModel):
+class Runtime(Model):
     command: tuple[str, ...]
 
 
-class RuntimesConfig(BaseModel):
+class RuntimesConfig(Model):
     runtimes: dict[str, Runtime]
 
 
-class Task(BaseModel):
+class Task(Model):
     interval: Duration
+    retention: Duration
+    max_failures: int
     runtime: str
     execute: str
 
 
-class TasksConfig(BaseModel):
+class TasksConfig(Model):
     tasks: dict[str, Task]
