@@ -1,0 +1,3 @@
+tasks:
+  example-task:
+    interval: 1m
