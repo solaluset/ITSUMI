@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI):
 
 async def execute_task(app: FastAPI, task: Task) -> None:
     runtime = app.state.runtimes[task.runtime]
-    print(await run_command(runtime.command, task.execute))
+    print(await run_command(runtime.command, app.state.workdir, task.execute))
 
 
 app = FastAPI(lifespan=lifespan)
