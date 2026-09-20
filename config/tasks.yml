@@ -1,0 +1,7 @@
+tasks:
+
+  example-task:
+    interval: 1m
+    runtime: bash
+    execute: |
+      echo ok

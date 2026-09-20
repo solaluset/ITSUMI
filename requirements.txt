@@ -1,2 +1,3 @@
 fastapi[standard-no-fastapi-cloud-cli]==0.141.1
 pydantic_yaml==1.7.0
+timelength==3.0.4
