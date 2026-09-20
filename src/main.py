@@ -24,6 +24,9 @@ async def lifespan(app: FastAPI):
         app.state.t = await create_periodic_task(
             lambda task=task: execute_task(app, task), 5, task.interval
         )
+        app.state.t.add_done_callback(
+            lambda t: print(e) if (e := t.exception()) else None
+        )
 
     try:
         yield
