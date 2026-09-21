@@ -39,3 +39,7 @@ class Task(Executable):
 
 class TasksConfig(Model):
     tasks: dict[str, Task]
+
+
+class ReportersConfig(Model):
+    reporters: list[list[Executable]]
