@@ -26,12 +26,15 @@ class RuntimesConfig(Model):
     runtimes: dict[str, Runtime]
 
 
-class Task(Model):
+class Executable(Model):
+    runtime: str
+    execute: str
+
+
+class Task(Executable):
     interval: Duration
     retention: Duration
     max_failures: int
-    runtime: str
-    execute: str
 
 
 class TasksConfig(Model):
