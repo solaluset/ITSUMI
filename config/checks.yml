@@ -1,6 +1,6 @@
-tasks:
+checks:
 
-  example-task:
+  example-check:
     interval: 1m
     retention: 10m
     max-failures: 1

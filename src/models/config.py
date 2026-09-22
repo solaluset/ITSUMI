@@ -31,14 +31,14 @@ class Executable(Model):
     execute: str
 
 
-class Task(Executable):
+class Check(Executable):
     interval: Duration
     retention: Duration
     max_failures: int
 
 
-class TasksConfig(Model):
-    tasks: dict[str, Task]
+class ChecksConfig(Model):
+    checks: dict[str, Check]
 
 
 class ReportersConfig(Model):

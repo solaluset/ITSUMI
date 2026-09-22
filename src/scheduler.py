@@ -4,7 +4,7 @@ from functools import partial
 from random import random
 
 from .executor import Executor, ExitCodeException
-from .models.config import Task
+from .models.config import Check, Executable
 
 
 async def _cancel_after(task: asyncio.Task, delay: float) -> None:
@@ -30,28 +30,30 @@ def create_periodic_task(
 
 
 class Scheduler:
-    def __init__(self, executor: Executor, tasks: dict[str, Task]):
+    def __init__(self, executor: Executor, checks: dict[str, Check]):
         self.executor = executor
-        self.tasks = tasks
-        self._async_tasks = set()
+        self.checks = checks
+        self._tasks = set()
 
-        for task in tasks.values():
-            self._start_task(task)
+        for check in checks.values():
+            self._add_check(check)
 
-    def _start_task(self, task: Task):
-        async_task = create_periodic_task(
-            partial(self._run_task, task), task.interval * random(), task.interval
+    def _add_check(self, check: Check):
+        task = create_periodic_task(
+            partial(self._run_executable, check),
+            check.interval * random(),
+            check.interval,
         )
-        self._async_tasks.add(async_task)
-        async_task.add_done_callback(self._task_done_callback)
+        self._tasks.add(task)
+        task.add_done_callback(self._task_done_callback)
 
-    async def _run_task(self, task: Task):
+    async def _run_executable(self, exe: Executable):
         try:
-            await self.executor.execute(task)
+            await self.executor.execute(exe)
         except ExitCodeException:
             ...
 
-    def _task_done_callback(self, async_task: asyncio.Task):
-        self._async_tasks.remove(async_task)
-        if exc := async_task.exception():
+    def _task_done_callback(self, task: asyncio.Task):
+        self._tasks.remove(task)
+        if exc := task.exception():
             print(exc)
