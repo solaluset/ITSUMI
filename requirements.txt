@@ -1,3 +1,5 @@
 fastapi[standard-no-fastapi-cloud-cli]==0.141.1
 pydantic_yaml==1.7.0
 timelength==3.0.4
+SQLAlchemy[asyncio]==2.0.54
+aiosqlite==0.22.1
