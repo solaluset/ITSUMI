@@ -19,11 +19,7 @@ def _call(command: tuple[str, ...], cwd: Path, stdin: str) -> tuple[int, str]:
         return process.wait(), process.stdout.read()
 
 
-class InternalExecutionException(Exception):
-    pass
-
-
-class ExecutionException(InternalExecutionException):
+class ExecutionException(Exception):
     pass
 
 
@@ -53,7 +49,7 @@ class Executor:
                 None, _call, runtime.command, self.workdir, exe.execute
             )
         except Exception as e:
-            raise InternalExecutionException(e) from e
+            raise ExecutionException(e) from e
         if code != 0:
             raise ExitCodeException(code, output)
         return output

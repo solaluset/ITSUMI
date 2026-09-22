@@ -1,6 +1,5 @@
 import os
 from contextlib import asynccontextmanager
-from functools import partial
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -8,7 +7,7 @@ from pydantic_yaml import parse_yaml_file_as
 
 from .executor import Executor
 from .models.config import RuntimesConfig, TasksConfig
-from .scheduler import create_periodic_task
+from .scheduler import Scheduler
 
 
 @asynccontextmanager
@@ -21,14 +20,7 @@ async def lifespan(app: FastAPI):
         RuntimesConfig, app.state.workdir / "config" / "runtimes.yml"
     ).runtimes
     app.state.executor = Executor(app.state.workdir, runtimes)
-
-    for task in app.state.tasks.values():
-        app.state.t = await create_periodic_task(
-            partial(app.state.executor.execute, task), 5, task.interval
-        )
-        app.state.t.add_done_callback(
-            lambda t: print(e) if (e := t.exception()) else None
-        )
+    app.state.scheduler = Scheduler(app.state.executor, app.state.tasks)
 
     try:
         yield
