@@ -13,14 +13,14 @@ from .scheduler import Scheduler
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.workdir = Path(os.getenv("ITSUMI_WORKDIR", os.getcwd())).absolute()
-    app.state.tasks = parse_yaml_file_as(
+    tasks = parse_yaml_file_as(
         TasksConfig, app.state.workdir / "config" / "tasks.yml"
     ).tasks
     runtimes = parse_yaml_file_as(
         RuntimesConfig, app.state.workdir / "config" / "runtimes.yml"
     ).runtimes
-    app.state.executor = Executor(app.state.workdir, runtimes)
-    app.state.scheduler = Scheduler(app.state.executor, app.state.tasks)
+    executor = Executor(app.state.workdir, runtimes)
+    app.state.scheduler = Scheduler(executor, tasks)
 
     try:
         yield
