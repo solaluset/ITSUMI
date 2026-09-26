@@ -1,17 +1,11 @@
 reporters:
-  -
-    # first group of reporters
-    # all reporters are run simultaneously
-    - runtime: bash
-      execute: |
-        echo error
-    - runtime: python
-      execute: |
-        print("error")
+  # execution will stop after first successful report
 
-  -
-    # second group of reporters
-    # will run if ANY reporter from previous group failed
-    - runtime: bash
-      execute: |
-        echo error2
+  - runtime: bash
+    execute: |
+      echo error
+      exit 1
+
+  - runtime: python
+    execute: |
+      print("error")

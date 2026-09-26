@@ -42,4 +42,4 @@ class ChecksConfig(Model):
 
 
 class ReportersConfig(Model):
-    reporters: list[list[Executable]]
+    reporters: list[Executable]
