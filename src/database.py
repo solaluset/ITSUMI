@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -8,11 +9,20 @@ class Base(DeclarativeBase):
     pass
 
 
-class RunRecord(Base):
-    __tablename__ = "run_record"
-
+class Run:
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    check: Mapped[str]
+    name: Mapped[str]
+    time: Mapped[datetime] = mapped_column(default=datetime)
+    code: Mapped[int]
+    output: Mapped[str]
+
+
+class Check(Base, Run):
+    __tablename__ = "check"
+
+
+class Report(Base, Run):
+    __tablename__ = "report"
 
 
 async def create_session_maker():
