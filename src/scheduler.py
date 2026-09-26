@@ -3,7 +3,7 @@ from collections.abc import Callable, Coroutine
 from functools import partial
 from random import random
 
-from .executor import Executor, ExitCodeException
+from .executor import Executor
 from .models.config import Check, Executable
 
 
@@ -48,10 +48,7 @@ class Scheduler:
         task.add_done_callback(self._task_done_callback)
 
     async def _run_executable(self, exe: Executable):
-        try:
-            await self.executor.execute(exe)
-        except ExitCodeException:
-            ...
+        await self.executor.execute(exe)
 
     def _task_done_callback(self, task: asyncio.Task):
         self._tasks.remove(task)
