@@ -23,7 +23,7 @@ class ExecutionException(Exception):
     pass
 
 
-class UnknownRuntimeException(ExecutionException):
+class NoSuchRuntimeException(ExecutionException):
     pass
 
 
@@ -42,7 +42,7 @@ class Executor:
     async def execute(self, exe: Executable) -> str:
         runtime = self.runtimes.get(exe.runtime)
         if not runtime:
-            raise UnknownRuntimeException(exe.runtime)
+            raise NoSuchRuntimeException(exe.runtime)
         loop = asyncio.get_running_loop()
         try:
             code, output = await loop.run_in_executor(
