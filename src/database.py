@@ -1,20 +1,22 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, MappedAsDataclass, mapped_column
 
 
 class Base(DeclarativeBase):
     pass
 
 
-class Run:
-    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+class Run(MappedAsDataclass):
     name: Mapped[str]
-    time: Mapped[datetime] = mapped_column(default=datetime)
     code: Mapped[int]
     output: Mapped[str]
+    id: Mapped[UUID] = mapped_column(primary_key=True, default_factory=uuid4)
+    time: Mapped[datetime] = mapped_column(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
 
 
 class Check(Base, Run):
