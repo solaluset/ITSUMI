@@ -1,5 +1,5 @@
 import asyncio
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable, Coroutine
 from functools import partial
 from random import random
 
@@ -14,7 +14,7 @@ async def _cancel_after(task: asyncio.Task, delay: float) -> None:
 
 
 def create_periodic_task(
-    func: Callable[[], Awaitable], delay: float, interval: float
+    func: Callable[[], Coroutine], delay: float, interval: float
 ) -> asyncio.Task:
     loop = asyncio.get_running_loop()
 
