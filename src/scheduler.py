@@ -7,12 +7,6 @@ from .executor import Executor
 from .models.config import Check, Executable
 
 
-async def _cancel_after(task: asyncio.Task, delay: float) -> None:
-    await asyncio.sleep(delay)
-    if task.cancel():
-        raise TimeoutError("task was running for too long")
-
-
 def create_periodic_task(
     func: Callable[[], Coroutine], delay: float, interval: float
 ) -> asyncio.Task:
@@ -23,8 +17,9 @@ def create_periodic_task(
         while True:
             # if `func_task` completes first, wait for `interval` to pass
             # if `interval` passes first, cancel `func_task` and raise exception
-            func_task = loop.create_task(func())
-            await asyncio.gather(func_task, _cancel_after(func_task, interval))
+            await asyncio.gather(
+                asyncio.wait_for(func(), interval), asyncio.sleep(interval)
+            )
 
     return loop.create_task(inner_loop())
 
