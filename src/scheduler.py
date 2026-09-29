@@ -25,9 +25,13 @@ def create_periodic_task(
 
 
 class Scheduler:
-    def __init__(self, executor: Executor, checks: dict[str, Check]):
+    def __init__(
+        self, executor: Executor, checks: dict[str, Check], reporters: list[Executable]
+    ):
         self.executor = executor
         self.checks = checks
+        self.reporters = reporters
+
         self._tasks = set()
 
         for check in checks.values():
