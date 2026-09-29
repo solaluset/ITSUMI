@@ -27,8 +27,8 @@ class ReportRecord(Base, Run):
     __tablename__ = "report"
 
 
-async def create_session_maker() -> async_sessionmaker[AsyncSession]:
-    engine = create_async_engine("sqlite+aiosqlite://")
+async def create_session_maker(url: str) -> async_sessionmaker[AsyncSession]:
+    engine = create_async_engine(url)
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

@@ -50,3 +50,7 @@ class ChecksConfig(Model):
 
 class ReportersConfig(Model):
     reporters: list[Executable]
+
+
+class MainConfig(Model):
+    database: str

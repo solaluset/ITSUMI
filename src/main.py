@@ -7,21 +7,26 @@ from pydantic_yaml import parse_yaml_file_as
 
 from .database import create_session_maker
 from .executor import Executor
-from .models.config import ChecksConfig, ReportersConfig, RuntimesConfig
+from .models.config import ChecksConfig, MainConfig, ReportersConfig, RuntimesConfig
 from .scheduler import Scheduler
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.workdir = Path(os.getenv("ITSUMI_WORKDIR", os.getcwd())).absolute()
+    os.chdir(app.state.workdir)
+    (app.state.workdir / "data").mkdir(exist_ok=True)
+
     config_dir = app.state.workdir / "config"
+    config = parse_yaml_file_as(MainConfig, config_dir / "main.yml")
     runtimes = parse_yaml_file_as(RuntimesConfig, config_dir / "runtimes.yml").runtimes
     checks = parse_yaml_file_as(ChecksConfig, config_dir / "checks.yml").checks
     reporters = parse_yaml_file_as(
         ReportersConfig, config_dir / "reporters.yml"
     ).reporters
     executor = Executor(app.state.workdir, runtimes)
-    app.state.db = await create_session_maker()
+
+    app.state.db = await create_session_maker(config.database)
     app.state.scheduler = Scheduler(executor, app.state.db, checks, reporters)
 
     try:
