@@ -22,7 +22,7 @@ async def lifespan(app: FastAPI):
     ).reporters
     executor = Executor(app.state.workdir, runtimes)
     app.state.db = await create_session_maker()
-    app.state.scheduler = Scheduler(executor, checks, reporters)
+    app.state.scheduler = Scheduler(executor, app.state.db, checks, reporters)
 
     try:
         yield

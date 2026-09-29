@@ -3,6 +3,8 @@ from collections.abc import Callable, Coroutine
 from functools import partial
 from random import random
 
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
 from .executor import Executor
 from .models.config import Check, Executable
 
@@ -26,9 +28,14 @@ def create_periodic_task(
 
 class Scheduler:
     def __init__(
-        self, executor: Executor, checks: dict[str, Check], reporters: list[Executable]
+        self,
+        executor: Executor,
+        session_maker: async_sessionmaker[AsyncSession],
+        checks: dict[str, Check],
+        reporters: list[Executable],
     ):
         self.executor = executor
+        self.database = session_maker
         self.checks = checks
         self.reporters = reporters
 
@@ -39,15 +46,15 @@ class Scheduler:
 
     def _add_check(self, check: Check):
         task = create_periodic_task(
-            partial(self._run_executable, check),
+            partial(self._run_check, check),
             check.interval * random(),
             check.interval,
         )
         self._tasks.add(task)
         task.add_done_callback(self._task_done_callback)
 
-    async def _run_executable(self, exe: Executable):
-        await self.executor.execute(exe)
+    async def _run_check(self, check: Check):
+        await self.executor.execute(check)
 
     def _task_done_callback(self, task: asyncio.Task):
         self._tasks.remove(task)

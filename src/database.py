@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, MappedAsDataclass, mapped_column
 
 
@@ -27,7 +27,7 @@ class Report(Base, Run):
     __tablename__ = "report"
 
 
-async def create_session_maker():
+async def create_session_maker() -> async_sessionmaker[AsyncSession]:
     engine = create_async_engine("sqlite+aiosqlite://")
 
     async with engine.begin() as conn:
