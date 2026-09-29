@@ -5,10 +5,13 @@ from pathlib import Path
 from .models.config import Executable, Runtime
 
 
-def _call(command: tuple[str, ...], cwd: Path, stdin: str) -> tuple[int, str]:
+def _call(
+    command: tuple[str, ...], cwd: Path, env: dict[str, str], stdin: str
+) -> tuple[int, str]:
     with subprocess.Popen(
         command,
         cwd=cwd,
+        env=env,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -32,14 +35,16 @@ class Executor:
         self.workdir = workdir
         self.runtimes = runtimes
 
-    async def execute(self, exe: Executable) -> tuple[int, str]:
+    async def execute(
+        self, exe: Executable, /, *, env: dict[str, str] | None = None
+    ) -> tuple[int, str]:
         runtime = self.runtimes.get(exe.runtime)
         if not runtime:
             raise NoSuchRuntimeException(exe.runtime)
         loop = asyncio.get_running_loop()
         try:
             return await loop.run_in_executor(
-                None, _call, runtime.command, self.workdir, exe.execute
+                None, _call, runtime.command, self.workdir, env or {}, exe.execute
             )
         except Exception as e:
             raise ExecutionException(e) from e
