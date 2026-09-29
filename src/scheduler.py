@@ -5,6 +5,7 @@ from random import random
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from .database import CheckRecord
 from .executor import Executor
 from .models.config import Check, Executable
 
@@ -54,7 +55,9 @@ class Scheduler:
         task.add_done_callback(self._task_done_callback)
 
     async def _run_check(self, check: Check):
-        await self.executor.execute(check)
+        code, output = await self.executor.execute(check)
+        async with self.database.begin() as session:
+            session.add(CheckRecord(name=check.name, code=code, output=output))
 
     def _task_done_callback(self, task: asyncio.Task):
         self._tasks.remove(task)

@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict
+from pydantic import BaseModel, BeforeValidator, ConfigDict, model_validator
 from timelength import TimeLength
 
 
@@ -35,10 +35,17 @@ class Check(Executable):
     interval: Duration
     retention: Duration
     max_failures: int
+    name: str = ""
 
 
 class ChecksConfig(Model):
     checks: dict[str, Check]
+
+    @model_validator(mode="after")
+    def _set_check_names(self):
+        for name, check in self.checks.items():
+            check.name = name
+        return self
 
 
 class ReportersConfig(Model):

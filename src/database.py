@@ -19,11 +19,11 @@ class Run(MappedAsDataclass):
     )
 
 
-class Check(Base, Run):
+class CheckRecord(Base, Run):
     __tablename__ = "check"
 
 
-class Report(Base, Run):
+class ReportRecord(Base, Run):
     __tablename__ = "report"
 
 
