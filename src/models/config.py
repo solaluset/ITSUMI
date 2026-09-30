@@ -48,8 +48,12 @@ class ChecksConfig(Model):
         return self
 
 
+class Reporter(Executable):
+    pass
+
+
 class ReportersConfig(Model):
-    reporters: list[Executable]
+    reporters: list[Reporter]
 
 
 class MainConfig(Model):

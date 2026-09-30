@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from .database import CheckRecord
 from .executor import Executor
-from .models.config import Check, Executable
+from .models.config import Check, Reporter
 
 
 def create_periodic_task(
@@ -33,7 +33,7 @@ class Scheduler:
         executor: Executor,
         session_maker: async_sessionmaker[AsyncSession],
         checks: dict[str, Check],
-        reporters: list[Executable],
+        reporters: list[Reporter],
     ):
         self.executor = executor
         self.database = session_maker
