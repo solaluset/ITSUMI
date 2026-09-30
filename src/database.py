@@ -9,7 +9,7 @@ from sqlalchemy.sql import functions as funcs
 from .models.config import Check
 
 
-class Base(DeclarativeBase):
+class Base(DeclarativeBase, MappedAsDataclass):
     pass
 
 
@@ -33,6 +33,13 @@ class ReportRecord(Base, Run):
     __tablename__ = "report"
 
 
+class FailureRecord(Base):
+    __tablename__ = "failure"
+
+    name: Mapped[str] = mapped_column(primary_key=True)
+    reported: Mapped[bool]
+
+
 async def create_session_maker(url: str) -> async_sessionmaker[AsyncSession]:
     engine = create_async_engine(url)
 
@@ -49,10 +56,22 @@ async def update_status(session: AsyncSession, check: Check) -> bool:
             & (CheckRecord.time < _current_time() - timedelta(seconds=check.retention))
         )
     )
-    return (
+    failed = (
         await session.scalar(
             select(funcs.count()).where(
                 (CheckRecord.name == check.name) & (CheckRecord.code != 0)
             )
         )
-    ) <= check.max_failures
+    ) > check.max_failures
+
+    if not failed:
+        await session.execute(
+            delete(FailureRecord).where(FailureRecord.name == check.name)
+        )
+        return True
+
+    return (
+        await session.scalar(
+            select(funcs.count()).where(FailureRecord.name == check.name)
+        )
+    ) > 0

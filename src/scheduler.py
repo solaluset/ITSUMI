@@ -5,7 +5,7 @@ from random import random
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from .database import CheckRecord, update_status
+from .database import CheckRecord, FailureRecord, update_status
 from .executor import Executor
 from .models.config import Check, Reporter
 
@@ -57,8 +57,18 @@ class Scheduler:
     async def _run_check(self, check: Check):
         code, output = await self.executor.execute(check)
         async with self.database.begin() as session:
-            session.add(CheckRecord(name=check.name, code=code, output=output))
-            print(await update_status(session, check))
+            record = CheckRecord(name=check.name, code=code, output=output)
+            session.add(record)
+            if not await update_status(session, check):
+                session.add(
+                    FailureRecord(
+                        name=check.name, reported=await self._report_failure(record)
+                    )
+                )
+
+    async def _report_failure(self, record: CheckRecord) -> bool:
+        print("dummy failure reported")
+        return True
 
     def _task_done_callback(self, task: asyncio.Task):
         self._tasks.remove(task)
