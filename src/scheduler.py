@@ -14,7 +14,7 @@ from .database import (
     update_status,
 )
 from .executor import ExecutionException, Executor
-from .models.config import Check, Executable, Reporter
+from .models.config import Check, Executable, MainConfig, Reporter
 
 _INTERNAL_NAME = "_itsumi"
 
@@ -39,11 +39,13 @@ def create_periodic_task(
 class Scheduler:
     def __init__(
         self,
+        config: MainConfig,
         executor: Executor,
         session_maker: async_sessionmaker[AsyncSession],
         checks: dict[str, Check],
         reporters: list[Reporter],
     ):
+        self.config = config
         self.executor = executor
         self.database = session_maker
         self.checks = checks
@@ -85,6 +87,8 @@ class Scheduler:
                 )
 
     async def _report_failure(self, session: AsyncSession, record: CheckRecord) -> bool:
+        success = False
+
         for i, reporter in enumerate(self.reporters):
             code, output = await self._execute(
                 reporter,
@@ -96,8 +100,10 @@ class Scheduler:
             )
             session.add(ReportRecord(name=f"reporter-{i}", code=code, output=output))
             if code == 0:
-                return True
-        return False
+                success = True
+                break
+
+        return success
 
     async def _report_internal_exception(self, exc: Exception):
         async with self.database.begin() as session:

@@ -1,1 +1,2 @@
 database: "sqlite+aiosqlite:///data/database.sqlite"
+report-record-limit: 100
