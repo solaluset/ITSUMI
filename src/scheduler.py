@@ -2,12 +2,13 @@ import asyncio
 from collections.abc import Callable, Coroutine
 from functools import partial
 from random import random
+from traceback import format_exc
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from .database import CheckRecord, FailureRecord, update_status
-from .executor import Executor
-from .models.config import Check, Reporter
+from .database import CheckRecord, FailureRecord, ReportRecord, update_status
+from .executor import ExecutionException, Executor
+from .models.config import Check, Executable, Reporter
 
 
 def create_periodic_task(
@@ -54,21 +55,41 @@ class Scheduler:
         self._tasks.add(task)
         task.add_done_callback(self._task_done_callback)
 
+    async def _execute(
+        self, exe: Executable, env: dict[str, str] | None = None
+    ) -> tuple[int, str]:
+        try:
+            return await self.executor.execute(exe, env=env)
+        except ExecutionException:
+            return -1, format_exc()
+
     async def _run_check(self, check: Check):
-        code, output = await self.executor.execute(check)
+        code, output = await self._execute(check)
         async with self.database.begin() as session:
             record = CheckRecord(name=check.name, code=code, output=output)
             session.add(record)
             if not await update_status(session, check):
                 session.add(
                     FailureRecord(
-                        name=check.name, reported=await self._report_failure(record)
+                        name=check.name,
+                        reported=await self._report_failure(session, record),
                     )
                 )
 
-    async def _report_failure(self, record: CheckRecord) -> bool:
-        print("dummy failure reported")
-        return True
+    async def _report_failure(self, session: AsyncSession, record: CheckRecord) -> bool:
+        for i, reporter in enumerate(self.reporters):
+            code, output = await self._execute(
+                reporter,
+                {
+                    "CHECK_NAME": record.name,
+                    "CHECK_CODE": record.code,
+                    "CHECK_OUTPUT": record.output,
+                },
+            )
+            session.add(ReportRecord(name=f"reporter-{i}", code=code, output=output))
+            if code == 0:
+                return True
+        return False
 
     def _task_done_callback(self, task: asyncio.Task):
         self._tasks.remove(task)
