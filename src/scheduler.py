@@ -101,6 +101,7 @@ class Scheduler:
                     name=_INTERNAL_NAME, code=-1, output="".join(format_exception(exc))
                 ),
             )
+            # XXX: it may already exist
             session.add(
                 FailureRecord(
                     name=_INTERNAL_NAME,
