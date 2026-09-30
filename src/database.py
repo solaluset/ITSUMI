@@ -1,12 +1,20 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, MappedAsDataclass, mapped_column
+from sqlalchemy.sql import functions as funcs
+
+from .models.config import Check
 
 
 class Base(DeclarativeBase):
     pass
+
+
+def _current_time() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 class Run(MappedAsDataclass):
@@ -14,9 +22,7 @@ class Run(MappedAsDataclass):
     code: Mapped[int]
     output: Mapped[str]
     id: Mapped[UUID] = mapped_column(primary_key=True, default_factory=uuid4)
-    time: Mapped[datetime] = mapped_column(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    time: Mapped[datetime] = mapped_column(default_factory=_current_time)
 
 
 class CheckRecord(Base, Run):
@@ -34,3 +40,19 @@ async def create_session_maker(url: str) -> async_sessionmaker[AsyncSession]:
         await conn.run_sync(Base.metadata.create_all)
 
     return async_sessionmaker(engine)
+
+
+async def update_status(session: AsyncSession, check: Check) -> bool:
+    await session.execute(
+        delete(CheckRecord).where(
+            (CheckRecord.name == check.name)
+            & (CheckRecord.time < _current_time() - timedelta(seconds=check.retention))
+        )
+    )
+    return (
+        await session.scalar(
+            select(funcs.count()).where(
+                (CheckRecord.name == check.name) & (CheckRecord.code != 0)
+            )
+        )
+    ) <= check.max_failures
