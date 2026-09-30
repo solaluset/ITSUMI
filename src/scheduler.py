@@ -11,6 +11,7 @@ from .database import (
     FailureRecord,
     ReportRecord,
     get_failure,
+    remove_old_reports,
     update_status,
 )
 from .executor import ExecutionException, Executor
@@ -102,6 +103,8 @@ class Scheduler:
             if code == 0:
                 success = True
                 break
+
+        await remove_old_reports(session, self.config.report_record_limit)
 
         return success
 

@@ -79,3 +79,8 @@ async def update_status(session: AsyncSession, check: Check) -> bool:
 
 async def get_failure(session: AsyncSession, name: str) -> FailureRecord | None:
     return await session.scalar(select(FailureRecord).where(FailureRecord.name == name))
+
+
+async def remove_old_reports(session: AsyncSession, limit: int):
+    retain = select(ReportRecord.id).order_by(ReportRecord.time.desc()).limit(limit)
+    await session.execute(delete(ReportRecord).where(ReportRecord.id.not_in(retain)))
