@@ -84,3 +84,12 @@ async def get_failure(session: AsyncSession, name: str) -> FailureRecord | None:
 async def remove_old_reports(session: AsyncSession, limit: int):
     retain = select(ReportRecord.id).order_by(ReportRecord.time.desc()).limit(limit)
     await session.execute(delete(ReportRecord).where(ReportRecord.id.not_in(retain)))
+
+
+async def remove_unknown_checks(session: AsyncSession, known_checks: list[str]):
+    await session.execute(
+        delete(FailureRecord).where(FailureRecord.name.not_in(known_checks))
+    )
+    await session.execute(
+        delete(CheckRecord).where(CheckRecord.name.not_in(known_checks))
+    )

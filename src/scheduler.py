@@ -12,6 +12,7 @@ from .database import (
     ReportRecord,
     get_failure,
     remove_old_reports,
+    remove_unknown_checks,
     update_status,
 )
 from .executor import ExecutionException, Executor
@@ -22,9 +23,7 @@ _INTERNAL_NAME = "_itsumi"
 
 def create_periodic_task(
     func: Callable[[], Coroutine], delay: float, interval: float
-) -> asyncio.Task:
-    loop = asyncio.get_running_loop()
-
+) -> Coroutine:
     async def inner_loop():
         await asyncio.sleep(delay)
         while True:
@@ -34,7 +33,7 @@ def create_periodic_task(
                 asyncio.wait_for(func(), interval), asyncio.sleep(interval)
             )
 
-    return loop.create_task(inner_loop())
+    return inner_loop()
 
 
 class Scheduler:
@@ -54,17 +53,32 @@ class Scheduler:
 
         self._tasks = set()
 
+        self._create_task(self._clean_database()).add_done_callback(
+            self._handle_task_exception
+        )
+
         for check in checks.values():
             self._add_check(check)
 
     def _add_check(self, check: Check):
-        task = create_periodic_task(
-            partial(self._run_check, check),
-            check.interval * random(),
-            check.interval,
+        task = self._create_task(
+            create_periodic_task(
+                partial(self._run_check, check),
+                check.interval * random(),
+                check.interval,
+            )
         )
+        task.add_done_callback(self._handle_task_exception)
+
+    async def _clean_database(self):
+        async with self.database.begin() as session:
+            await remove_unknown_checks(session, list(self.checks))
+
+    def _create_task(self, coro: Coroutine) -> asyncio.Task:
+        task = asyncio.get_running_loop().create_task(coro)
         self._tasks.add(task)
-        task.add_done_callback(self._check_loop_done)
+        task.add_done_callback(self._tasks.remove)
+        return task
 
     async def _execute(
         self, exe: Executable, env: dict[str, str] | None = None
@@ -127,11 +141,6 @@ class Scheduler:
                 )
             )
 
-    def _check_loop_done(self, task: asyncio.Task):
-        self._tasks.remove(task)
+    def _handle_task_exception(self, task: asyncio.Task):
         if exc := task.exception():
-            task = asyncio.get_running_loop().create_task(
-                self._report_internal_exception(exc)
-            )
-            self._tasks.add(task)
-            task.add_done_callback(self._tasks.remove)
+            self._create_task(self._report_internal_exception(exc))
