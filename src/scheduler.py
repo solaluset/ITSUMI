@@ -2,13 +2,15 @@ import asyncio
 from collections.abc import Callable, Coroutine
 from functools import partial
 from random import random
-from traceback import format_exc
+from traceback import format_exc, format_exception
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from .database import CheckRecord, FailureRecord, ReportRecord, update_status
 from .executor import ExecutionException, Executor
 from .models.config import Check, Executable, Reporter
+
+_INTERNAL_NAME = "_itsumi"
 
 
 def create_periodic_task(
@@ -53,7 +55,7 @@ class Scheduler:
             check.interval,
         )
         self._tasks.add(task)
-        task.add_done_callback(self._task_done_callback)
+        task.add_done_callback(self._check_loop_done)
 
     async def _execute(
         self, exe: Executable, env: dict[str, str] | None = None
@@ -82,7 +84,7 @@ class Scheduler:
                 reporter,
                 {
                     "CHECK_NAME": record.name,
-                    "CHECK_CODE": record.code,
+                    "CHECK_CODE": str(record.code),
                     "CHECK_OUTPUT": record.output,
                 },
             )
@@ -91,7 +93,26 @@ class Scheduler:
                 return True
         return False
 
-    def _task_done_callback(self, task: asyncio.Task):
+    async def _report_internal_exception(self, exc: Exception):
+        async with self.database.begin() as session:
+            reported = await self._report_failure(
+                session,
+                CheckRecord(
+                    name=_INTERNAL_NAME, code=-1, output="".join(format_exception(exc))
+                ),
+            )
+            session.add(
+                FailureRecord(
+                    name=_INTERNAL_NAME,
+                    reported=reported,
+                )
+            )
+
+    def _check_loop_done(self, task: asyncio.Task):
         self._tasks.remove(task)
         if exc := task.exception():
-            print(exc)
+            task = asyncio.get_running_loop().create_task(
+                self._report_internal_exception(exc)
+            )
+            self._tasks.add(task)
+            task.add_done_callback(self._tasks.remove)
