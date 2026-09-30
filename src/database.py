@@ -75,3 +75,7 @@ async def update_status(session: AsyncSession, check: Check) -> bool:
             select(funcs.count()).where(FailureRecord.name == check.name)
         )
     ) > 0
+
+
+async def get_failure(session: AsyncSession, name: str) -> FailureRecord | None:
+    return await session.scalar(select(FailureRecord).where(FailureRecord.name == name))

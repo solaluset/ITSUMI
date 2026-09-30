@@ -6,7 +6,13 @@ from traceback import format_exc, format_exception
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from .database import CheckRecord, FailureRecord, ReportRecord, update_status
+from .database import (
+    CheckRecord,
+    FailureRecord,
+    ReportRecord,
+    get_failure,
+    update_status,
+)
 from .executor import ExecutionException, Executor
 from .models.config import Check, Executable, Reporter
 
@@ -95,13 +101,16 @@ class Scheduler:
 
     async def _report_internal_exception(self, exc: Exception):
         async with self.database.begin() as session:
+            if await get_failure(session, _INTERNAL_NAME):
+                # already recorded
+                return
+
             reported = await self._report_failure(
                 session,
                 CheckRecord(
                     name=_INTERNAL_NAME, code=-1, output="".join(format_exception(exc))
                 ),
             )
-            # XXX: it may already exist
             session.add(
                 FailureRecord(
                     name=_INTERNAL_NAME,
