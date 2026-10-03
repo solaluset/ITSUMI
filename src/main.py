@@ -1,8 +1,9 @@
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException
 from pydantic_yaml import parse_yaml_file_as
 
 from .database import create_session_maker, get_unreported_failures
@@ -13,19 +14,20 @@ from .scheduler import Scheduler
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.workdir = Path(os.getenv("ITSUMI_WORKDIR", os.getcwd())).absolute()
-    os.chdir(app.state.workdir)
-    (app.state.workdir / "data").mkdir(exist_ok=True)
+    workdir = Path(os.getenv("ITSUMI_WORKDIR", os.getcwd())).absolute()
+    os.chdir(workdir)
+    (workdir / "data").mkdir(exist_ok=True)
 
-    config_dir = app.state.workdir / "config"
+    config_dir = workdir / "config"
     config = parse_yaml_file_as(MainConfig, config_dir / "main.yml")
     runtimes = parse_yaml_file_as(RuntimesConfig, config_dir / "runtimes.yml").runtimes
     checks = parse_yaml_file_as(ChecksConfig, config_dir / "checks.yml").checks
     reporters = parse_yaml_file_as(
         ReportersConfig, config_dir / "reporters.yml"
     ).reporters
-    executor = Executor(app.state.workdir, runtimes)
+    executor = Executor(workdir, runtimes)
 
+    app.state.config = config
     app.state.db = await create_session_maker(config.database)
     app.state.scheduler = Scheduler(config, executor, app.state.db, checks, reporters)
 
@@ -35,9 +37,14 @@ async def lifespan(app: FastAPI):
         pass
 
 
+def auth_v1(token: Annotated[str, Header()]):
+    if token not in app.state.config.tokens.values():
+        raise HTTPException(401)
+
+
 app = FastAPI(lifespan=lifespan)
 api_router = APIRouter(prefix="/api")
-api_router_v1 = APIRouter(prefix="/v1")
+api_router_v1 = APIRouter(prefix="/v1", dependencies=[Depends(auth_v1)])
 
 
 @api_router_v1.get("/status")
