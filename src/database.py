@@ -81,6 +81,14 @@ async def get_failure(session: AsyncSession, name: str) -> FailureRecord | None:
     return await session.scalar(select(FailureRecord).where(FailureRecord.name == name))
 
 
+async def get_unreported_failures(session: AsyncSession) -> list[str]:
+    return (
+        await session.scalars(
+            select(FailureRecord.name).where(FailureRecord.reported.is_(False))
+        )
+    ).all()
+
+
 async def remove_old_reports(session: AsyncSession, limit: int):
     oldest_retain = (
         select(ReportRecord.time)

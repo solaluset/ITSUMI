@@ -2,10 +2,10 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 from pydantic_yaml import parse_yaml_file_as
 
-from .database import create_session_maker
+from .database import create_session_maker, get_unreported_failures
 from .executor import Executor
 from .models.config import ChecksConfig, MainConfig, ReportersConfig, RuntimesConfig
 from .scheduler import Scheduler
@@ -36,3 +36,15 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+api_router = APIRouter(prefix="/api")
+api_router_v1 = APIRouter(prefix="/v1")
+
+
+@api_router_v1.get("/status")
+async def root():
+    async with app.state.db() as session:
+        return {"failures": await get_unreported_failures(session)}
+
+
+api_router.include_router(api_router_v1)
+app.include_router(api_router)
