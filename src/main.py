@@ -1,13 +1,14 @@
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException
+from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Query
 from pydantic_yaml import parse_yaml_file_as
 
 from .database import (
     CheckRecord,
+    ReportRecord,
     create_session_maker,
     get_logs,
     get_unreported_failures,
@@ -60,9 +61,20 @@ async def status() -> StatusResponse:
 
 
 @api_router_v1.get("/logs")
-async def logs():
+async def logs(
+    record_type: Annotated[Literal["check", "report"], Query(alias="type")],
+    name: Annotated[str | None, Query()] = None,
+    failed_only: Annotated[bool, Query(alias="failed")] = False,
+    limit: Annotated[int, Query()] = 10,
+):
     async with app.state.db() as session:
-        return await get_logs(session, CheckRecord)
+        return await get_logs(
+            session,
+            {"check": CheckRecord, "report": ReportRecord}[record_type],
+            name,
+            failed_only,
+            limit,
+        )
 
 
 api_router.include_router(api_router_v1)

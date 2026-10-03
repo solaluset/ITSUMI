@@ -93,8 +93,19 @@ async def get_unreported_failures(session: AsyncSession) -> list[str]:
 RunT = TypeVar("RunT", bound=Run)
 
 
-async def get_logs(session: AsyncSession, type_: type[RunT]) -> list[RunT]:
-    return (await session.scalars(select(type_))).all()
+async def get_logs(
+    session: AsyncSession,
+    type_: type[RunT],
+    name: str | None,
+    failed_only: bool,
+    limit: int,
+) -> list[RunT]:
+    query = select(type_)
+    if name is not None:
+        query = query.where(type_.name == name)
+    if failed_only:
+        query = query.where(type_.code != 0)
+    return (await session.scalars(query.order_by(type_.time.desc()).limit(limit))).all()
 
 
 async def remove_old_reports(session: AsyncSession, limit: int):
