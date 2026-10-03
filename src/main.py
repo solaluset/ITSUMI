@@ -48,7 +48,7 @@ api_router_v1 = APIRouter(prefix="/v1", dependencies=[Depends(auth_v1)])
 
 
 @api_router_v1.get("/status")
-async def root():
+async def status():
     async with app.state.db() as session:
         return {"failures": await get_unreported_failures(session)}
 
