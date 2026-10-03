@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from typing import TypeVar
 from uuid import UUID, uuid4
 
 from sqlalchemy import delete, select
@@ -87,6 +88,13 @@ async def get_unreported_failures(session: AsyncSession) -> list[str]:
             select(FailureRecord.name).where(FailureRecord.reported.is_(False))
         )
     ).all()
+
+
+RunT = TypeVar("RunT", bound=Run)
+
+
+async def get_logs(session: AsyncSession, type_: type[RunT]) -> list[RunT]:
+    return (await session.scalars(select(type_))).all()
 
 
 async def remove_old_reports(session: AsyncSession, limit: int):

@@ -6,7 +6,12 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException
 from pydantic_yaml import parse_yaml_file_as
 
-from .database import create_session_maker, get_unreported_failures
+from .database import (
+    CheckRecord,
+    create_session_maker,
+    get_logs,
+    get_unreported_failures,
+)
 from .executor import Executor
 from .models.api import StatusResponse
 from .models.config import ChecksConfig, MainConfig, ReportersConfig, RuntimesConfig
@@ -52,6 +57,12 @@ api_router_v1 = APIRouter(prefix="/v1", dependencies=[Depends(auth_v1)])
 async def status() -> StatusResponse:
     async with app.state.db() as session:
         return StatusResponse(failures=await get_unreported_failures(session))
+
+
+@api_router_v1.get("/logs")
+async def logs():
+    async with app.state.db() as session:
+        return await get_logs(session, CheckRecord)
 
 
 api_router.include_router(api_router_v1)
