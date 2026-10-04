@@ -101,10 +101,16 @@ class Scheduler:
                     )
                 )
 
-    async def _report_failure(self, session: AsyncSession, record: CheckRecord) -> bool:
-        success = False
+    async def _report_failure(
+        self,
+        session: AsyncSession,
+        record: CheckRecord,
+        *,
+        stop_on_success: bool = False,
+    ) -> bool:
+        success_count = 0
 
-        for i, reporter in enumerate(self.reporters):
+        for i, reporter in enumerate(self.reporters, start=1):
             code, output = await self._execute(
                 reporter,
                 {
@@ -115,12 +121,20 @@ class Scheduler:
             )
             session.add(ReportRecord(name=f"reporter-{i}", code=code, output=output))
             if code == 0:
-                success = True
-                break
+                success_count += 1
+                if stop_on_success:
+                    break
 
         await remove_old_reports(session, self.config.report_record_limit)
 
-        return success
+        return success_count >= (1 if stop_on_success else i)
+
+    async def report(
+        self, session: AsyncSession, record: CheckRecord, all_reporters: bool
+    ) -> bool:
+        return await self._report_failure(
+            session, record, stop_on_success=not all_reporters
+        )
 
     async def _report_internal_exception(self, exc: Exception):
         async with self.database.begin() as session:

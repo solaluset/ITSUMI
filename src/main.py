@@ -14,7 +14,7 @@ from .database import (
     get_unreported_failures,
 )
 from .executor import Executor
-from .models.api import StatusResponse
+from .models.api import BasicResponse, StatusResponse
 from .models.config import ChecksConfig, MainConfig, ReportersConfig, RuntimesConfig
 from .scheduler import Scheduler
 
@@ -74,6 +74,21 @@ async def logs(
             name,
             failed_only,
             limit,
+        )
+
+
+@api_router_v1.post("/report")
+async def report(
+    name: Annotated[str, Query()] = "_test",
+    code: Annotated[int, Query()] = 0,
+    output: Annotated[str, Query()] = "",
+    all_reporters: Annotated[bool, Query(alias="all-reporters")] = False,
+) -> BasicResponse:
+    async with app.state.db.begin() as session:
+        return BasicResponse(
+            success=await app.state.scheduler.report(
+                session, CheckRecord(name, code, output), all_reporters
+            )
         )
 
 
