@@ -3,7 +3,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, FastAPI, Query
+from fastapi.security import APIKeyHeader
 from pydantic_yaml import parse_yaml_file_as
 
 from .database import (
@@ -44,9 +45,12 @@ async def lifespan(app: FastAPI):
         pass
 
 
-def auth_v1(token: Annotated[str, Header()]):
+auth_v1_header = APIKeyHeader(name="x-token")
+
+
+def auth_v1(token: Annotated[str, Depends(auth_v1_header)]):
     if token not in app.state.config.tokens.values():
-        raise HTTPException(401)
+        raise auth_v1_header.make_not_authenticated_error()
 
 
 app = FastAPI(lifespan=lifespan)
