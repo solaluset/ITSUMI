@@ -59,4 +59,5 @@ class ReportersConfig(Model):
 class MainConfig(Model):
     database: str
     report_record_limit: int
+    pass_env: list[str]
     tokens: dict[str, str]

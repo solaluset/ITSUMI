@@ -1,8 +1,9 @@
 import asyncio
+import os
 import subprocess
 from pathlib import Path
 
-from .models.config import Executable, Runtime
+from .models.config import Executable, MainConfig, Runtime
 
 
 def _call(
@@ -31,8 +32,9 @@ class NoSuchRuntimeException(ExecutionException):
 
 
 class Executor:
-    def __init__(self, workdir: Path, runtimes: dict[str, Runtime]):
+    def __init__(self, workdir: Path, config: MainConfig, runtimes: dict[str, Runtime]):
         self.workdir = workdir
+        self.pass_env = config.pass_env
         self.runtimes = runtimes
 
     async def execute(
@@ -42,9 +44,14 @@ class Executor:
         if not runtime:
             raise NoSuchRuntimeException(exe.runtime)
         loop = asyncio.get_running_loop()
+        environ = {
+            key: os.getenv(key) for key in self.pass_env if os.getenv(key) is not None
+        }
+        if env:
+            environ.update(env)
         try:
             return await loop.run_in_executor(
-                None, _call, runtime.command, self.workdir, env or {}, exe.execute
+                None, _call, runtime.command, self.workdir, environ, exe.execute
             )
         except Exception as e:
             raise ExecutionException(e) from e

@@ -1,5 +1,9 @@
 database: "sqlite+aiosqlite:///data/database.sqlite"
 report-record-limit: 100
+pass-env:
+  - PATH
+  - CWD
+  - SHELL
 
 tokens:
   test: unsafe-test-token

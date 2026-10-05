@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI):
     reporters = parse_yaml_file_as(
         ReportersConfig, config_dir / "reporters.yml"
     ).reporters
-    executor = Executor(workdir, runtimes)
+    executor = Executor(workdir, config, runtimes)
 
     app.state.config = config
     app.state.db = await create_session_maker(config.database)
