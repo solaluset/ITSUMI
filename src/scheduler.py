@@ -28,10 +28,7 @@ def create_periodic_task(
         await asyncio.sleep(delay)
         while True:
             # if `func_task` completes first, wait for `interval` to pass
-            # if `interval` passes first, cancel `func_task` and raise exception
-            await asyncio.gather(
-                asyncio.wait_for(func(), interval), asyncio.sleep(interval)
-            )
+            await asyncio.gather(func(), asyncio.sleep(interval))
 
     return inner_loop()
 
@@ -81,15 +78,21 @@ class Scheduler:
         return task
 
     async def _execute(
-        self, exe: Executable, env: dict[str, str] | None = None
+        self, exe: Executable, timeout: float, env: dict[str, str] | None = None
     ) -> tuple[int, str]:
         try:
-            return await self.executor.execute(exe, env=env)
-        except ExecutionException:
+            async with asyncio.timeout(timeout):
+                return await self.executor.execute(exe, env=env)
+        except (ExecutionException, TimeoutError):
             return -1, format_exc()
 
     async def _run_check(self, check: Check):
-        code, output = await self._execute(check)
+        code, output = await self._execute(check, check.interval)
+        self._create_task(
+            self._handle_check_result(check, code, output)
+        ).add_done_callback(self._handle_task_exception)
+
+    async def _handle_check_result(self, check: Check, code: int, output: str):
         async with self.database.begin() as session:
             record = CheckRecord(name=check.name, code=code, output=output)
             session.add(record)
@@ -113,6 +116,7 @@ class Scheduler:
         for i, reporter in enumerate(self.reporters, start=1):
             code, output = await self._execute(
                 reporter,
+                self.config.report_timeout,
                 {
                     "CHECK_NAME": record.name,
                     "CHECK_CODE": str(record.code),

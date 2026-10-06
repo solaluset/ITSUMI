@@ -1,4 +1,5 @@
 database: "sqlite+aiosqlite:///data/database.sqlite"
+report-timeout: 10s
 report-record-limit: 100
 pass-env:
   - PATH
