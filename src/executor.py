@@ -1,26 +1,10 @@
 import asyncio
 import os
 import subprocess
+from functools import partial
 from pathlib import Path
 
 from .models.config import Executable, MainConfig, Runtime
-
-
-def _call(
-    command: tuple[str, ...], cwd: Path, env: dict[str, str], stdin: str
-) -> tuple[int, str]:
-    with subprocess.Popen(
-        command,
-        cwd=cwd,
-        env=env,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-    ) as process:
-        process.stdin.write(stdin)
-        process.stdin.close()
-        return process.wait(), process.stdout.read()
 
 
 class ExecutionException(Exception):
@@ -50,8 +34,29 @@ class Executor:
         if env:
             environ.update(env)
         try:
-            return await loop.run_in_executor(
-                None, _call, runtime.command, self.workdir, environ, exe.execute
+            process = await loop.run_in_executor(
+                None,
+                partial(
+                    subprocess.Popen,
+                    runtime.command,
+                    cwd=self.workdir,
+                    env=environ,
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                ),
             )
+            try:
+                await loop.run_in_executor(None, _communicate, process, exe.execute)
+            except asyncio.CancelledError:
+                process.kill()
+                raise
         except Exception as e:
             raise ExecutionException(e) from e
+
+
+def _communicate(process: subprocess.Popen, stdin: str) -> tuple[int, str]:
+    with process:
+        stdout, _ = process.communicate(stdin)
+        return process.returncode, stdout
