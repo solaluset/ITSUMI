@@ -16,4 +16,4 @@ runtimes:
 
         namespace = {}
         exec("from config.helpers.common import *", namespace)
-        exec(sys.stdin.read(), namespace)
+        namespace["_exec"](sys.stdin.read(), namespace)
