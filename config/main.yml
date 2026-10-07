@@ -1,6 +1,10 @@
+# database URL for SQLAlchemy
 database: "sqlite+aiosqlite:///data/database.sqlite"
+# reporter task is considered failed if runs longer than X
 report-timeout: 10s
+# store no more than X reporter logs
 report-record-limit: 100
+# environment variables listed will be passed down to tasks
 pass-env:
   - PATH
   - CWD
