@@ -3,9 +3,10 @@ reporters:
 
   - runtime: bash
     execute: |
-      echo error
+      echo "$CHECK_NAME exited with $CHECK_CODE"
       exit 1
 
   - runtime: python
     execute: |
-      print("error")
+      print("Output:")
+      print(os.getenv("CHECK_OUTPUT"), end="")
