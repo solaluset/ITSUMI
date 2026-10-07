@@ -1,4 +1,5 @@
 import asyncio
+from collections import defaultdict
 from collections.abc import Callable, Coroutine
 from functools import partial
 from random import random
@@ -19,6 +20,7 @@ from .executor import ExecutionException, Executor
 from .models.config import Check, Executable, MainConfig, Reporter
 
 _INTERNAL_NAME = "_itsumi"
+_INTERNAL_CODE = -1
 
 
 def create_periodic_task(
@@ -48,6 +50,7 @@ class Scheduler:
         self.checks = checks
         self.reporters = reporters
 
+        self._locks = defaultdict(asyncio.Lock)
         self._tasks = set()
 
         self._create_task(self._clean_database())
@@ -75,31 +78,39 @@ class Scheduler:
             async with asyncio.timeout(timeout):
                 return await self.executor.execute(exe, env=env)
         except (ExecutionException, TimeoutError):
-            return -1, format_exc()
+            return _INTERNAL_CODE, format_exc()
 
     async def _run_check(self, check: Check):
         code, output = await self._execute(check, check.interval)
         self._create_task(self._handle_check_result(check, code, output))
 
     async def _handle_check_result(self, check: Check, code: int, output: str):
-        async with self.database.begin() as session:
+        async with self._locks[check.name]:
             record = CheckRecord(name=check.name, code=code, output=output)
-            session.add(record)
-            if not await update_status(session, check):
+            async with self.database.begin() as session:
+                session.add(record)
+                report_needed = not await update_status(session, check)
+                session.expunge(record)
+
+            if not report_needed:
+                return
+            reported = await self._report_failure(record)
+
+            async with self.database.begin() as session:
                 session.add(
                     FailureRecord(
                         name=check.name,
-                        reported=await self._report_failure(session, record),
+                        reported=reported,
                     )
                 )
 
     async def _report_failure(
         self,
-        session: AsyncSession,
         record: CheckRecord,
         *,
-        stop_on_success: bool = False,
+        stop_on_success: bool = True,
     ) -> bool:
+        reports = []
         success_count = 0
 
         for i, reporter in enumerate(self.reporters, start=1):
@@ -112,41 +123,43 @@ class Scheduler:
                     "CHECK_OUTPUT": record.output,
                 },
             )
-            session.add(ReportRecord(name=f"reporter-{i}", code=code, output=output))
+            reports.append(ReportRecord(name=f"reporter-{i}", code=code, output=output))
             if code == 0:
                 success_count += 1
                 if stop_on_success:
                     break
 
-        await remove_old_reports(session, self.config.report_record_limit)
+        async with self.database.begin() as session:
+            session.add_all(reports)
+            await remove_old_reports(session, self.config.report_record_limit)
 
         return success_count >= (1 if stop_on_success else i)
 
-    async def report(
-        self, session: AsyncSession, record: CheckRecord, all_reporters: bool
-    ) -> bool:
-        return await self._report_failure(
-            session, record, stop_on_success=not all_reporters
-        )
+    async def report(self, record: CheckRecord, all_reporters: bool) -> bool:
+        return await self._report_failure(record, stop_on_success=not all_reporters)
 
     async def _report_internal_exception(self, exc: Exception):
-        async with self.database.begin() as session:
-            if await get_failure(session, _INTERNAL_NAME):
-                # already recorded
-                return
+        async with self._locks[_INTERNAL_NAME]:
+            async with self.database.begin() as session:
+                if await get_failure(session, _INTERNAL_NAME):
+                    # already recorded
+                    return
 
-            reported = await self._report_failure(
-                session,
-                CheckRecord(
-                    name=_INTERNAL_NAME, code=-1, output="".join(format_exception(exc))
-                ),
+            record = CheckRecord(
+                name=_INTERNAL_NAME,
+                code=_INTERNAL_CODE,
+                output="".join(format_exception(exc)),
             )
-            session.add(
-                FailureRecord(
-                    name=_INTERNAL_NAME,
-                    reported=reported,
+            reported = await self._report_failure(record)
+
+            async with self.database.begin() as session:
+                session.add(record)
+                session.add(
+                    FailureRecord(
+                        name=_INTERNAL_NAME,
+                        reported=reported,
+                    )
                 )
-            )
 
     def _create_task(
         self, coro: Coroutine, /, *, add_error_handler: bool = True

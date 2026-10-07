@@ -88,12 +88,11 @@ async def report(
     output: Annotated[str, Query()] = "",
     all_reporters: Annotated[bool, Query(alias="all-reporters")] = False,
 ) -> BasicResponse:
-    async with app.state.db.begin() as session:
-        return BasicResponse(
-            success=await app.state.scheduler.report(
-                session, CheckRecord(name, code, output), all_reporters
-            )
+    return BasicResponse(
+        success=await app.state.scheduler.report(
+            CheckRecord(name, code, output), all_reporters
         )
+    )
 
 
 api_router.include_router(api_router_v1)

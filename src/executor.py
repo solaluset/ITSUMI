@@ -48,7 +48,9 @@ class Executor:
                 ),
             )
             try:
-                await loop.run_in_executor(None, _communicate, process, exe.execute)
+                return await loop.run_in_executor(
+                    None, _communicate, process, exe.execute
+                )
             except asyncio.CancelledError:
                 process.kill()
                 raise

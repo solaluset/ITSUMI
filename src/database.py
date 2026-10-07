@@ -41,8 +41,8 @@ class FailureRecord(Base):
     reported: Mapped[bool]
 
 
-async def create_session_maker(url: str) -> async_sessionmaker[AsyncSession]:
-    engine = create_async_engine(url)
+async def create_session_maker(url: str, **kwargs) -> async_sessionmaker[AsyncSession]:
+    engine = create_async_engine(url, **kwargs)
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -57,13 +57,11 @@ async def update_status(session: AsyncSession, check: Check) -> bool:
             & (CheckRecord.time < _current_time() - timedelta(seconds=check.retention))
         )
     )
-    failed = (
-        await session.scalar(
-            select(funcs.count()).where(
-                (CheckRecord.name == check.name) & (CheckRecord.code != 0)
-            )
-        )
-    ) > check.max_failures
+
+    count_query = select(funcs.count()).where(CheckRecord.name == check.name)
+    success_count = await session.scalar(count_query.where(CheckRecord.code == 0))
+    failure_count = await session.scalar(count_query.where(CheckRecord.code != 0))
+    failed = success_count <= 0 or failure_count > check.max_failures
 
     if not failed:
         await session.execute(
