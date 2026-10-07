@@ -42,7 +42,7 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
-        pass
+        app.state.scheduler.stop()
 
 
 auth_v1_header = APIKeyHeader(name="x-token")

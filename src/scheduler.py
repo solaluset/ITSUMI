@@ -161,6 +161,10 @@ class Scheduler:
                     )
                 )
 
+    def stop(self) -> None:
+        for task in self._tasks:
+            task.cancel()
+
     def _create_task(
         self, coro: Coroutine, /, *, add_error_handler: bool = True
     ) -> asyncio.Task:
@@ -172,6 +176,8 @@ class Scheduler:
         return task
 
     def _handle_task_exception(self, task: asyncio.Task):
+        if task.cancelled():
+            return
         if exc := task.exception():
             self._create_task(
                 self._report_internal_exception(exc), add_error_handler=False
