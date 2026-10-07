@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import TypeVar
 from uuid import UUID, uuid4
@@ -59,8 +60,10 @@ async def update_status(session: AsyncSession, check: Check) -> bool:
     )
 
     count_query = select(funcs.count()).where(CheckRecord.name == check.name)
-    success_count = await session.scalar(count_query.where(CheckRecord.code == 0))
-    failure_count = await session.scalar(count_query.where(CheckRecord.code != 0))
+    success_count, failure_count = await asyncio.gather(
+        session.scalar(count_query.where(CheckRecord.code == 0)),
+        session.scalar(count_query.where(CheckRecord.code != 0)),
+    )
     failed = success_count <= 0 or failure_count > check.max_failures
 
     if not failed:
