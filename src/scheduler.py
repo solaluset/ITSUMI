@@ -1,8 +1,8 @@
 import asyncio
 from collections import defaultdict
 from collections.abc import Callable, Coroutine
+from datetime import timedelta
 from functools import partial
-from random import random
 from traceback import format_exc, format_exception
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -11,7 +11,9 @@ from .database import (
     CheckRecord,
     FailureRecord,
     ReportRecord,
+    current_time,
     get_failure,
+    get_logs,
     remove_old_reports,
     remove_unknown_checks,
     update_status,
@@ -53,23 +55,31 @@ class Scheduler:
         self._locks = defaultdict(asyncio.Lock)
         self._tasks = set()
 
-        self._create_task(self._clean_database())
+        self._create_task(self._async_init())
 
-        for check in checks.values():
-            self._add_check(check)
+    async def _async_init(self):
+        async with self.database.begin() as session:
+            await remove_unknown_checks(session, list(self.checks))
+        async with self.database() as session:
+            await asyncio.gather(
+                *(self._add_check(session, check) for check in self.checks.values())
+            )
 
-    def _add_check(self, check: Check):
+    async def _add_check(self, session: AsyncSession, check: Check):
+        last_run = await get_logs(session, CheckRecord, name=check.name, limit=1)
+        if last_run:
+            delay = (
+                last_run[0].time + timedelta(seconds=check.interval) - current_time()
+            ).total_seconds()
+        else:
+            delay = 0
         self._create_task(
             create_periodic_task(
                 partial(self._run_check, check),
-                check.interval * random(),
+                delay,
                 check.interval,
             )
         )
-
-    async def _clean_database(self):
-        async with self.database.begin() as session:
-            await remove_unknown_checks(session, list(self.checks))
 
     async def _execute(
         self, exe: Executable, timeout: float, env: dict[str, str] | None = None

@@ -75,9 +75,9 @@ async def logs(
         return await get_logs(
             session,
             {"check": CheckRecord, "report": ReportRecord}[record_type],
-            name,
-            failed_only,
-            limit,
+            name=name,
+            failed_only=failed_only,
+            limit=limit,
         )
 
 

@@ -15,8 +15,8 @@ class Base(DeclarativeBase, MappedAsDataclass):
     pass
 
 
-def _current_time() -> datetime:
-    return datetime.now(timezone.utc)
+def current_time() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class Run(MappedAsDataclass):
@@ -24,7 +24,7 @@ class Run(MappedAsDataclass):
     code: Mapped[int]
     output: Mapped[str]
     id: Mapped[UUID] = mapped_column(primary_key=True, default_factory=uuid4)
-    time: Mapped[datetime] = mapped_column(default_factory=_current_time)
+    time: Mapped[datetime] = mapped_column(default_factory=current_time)
 
 
 class CheckRecord(Base, Run):
@@ -55,7 +55,7 @@ async def update_status(session: AsyncSession, check: Check) -> bool:
     await session.execute(
         delete(CheckRecord).where(
             (CheckRecord.name == check.name)
-            & (CheckRecord.time < _current_time() - timedelta(seconds=check.retention))
+            & (CheckRecord.time < current_time() - timedelta(seconds=check.retention))
         )
     )
 
@@ -97,8 +97,10 @@ RunT = TypeVar("RunT", bound=Run)
 async def get_logs(
     session: AsyncSession,
     type_: type[RunT],
-    name: str | None,
-    failed_only: bool,
+    /,
+    *,
+    name: str | None = None,
+    failed_only: bool = False,
     limit: int,
 ) -> list[RunT]:
     query = select(type_)
