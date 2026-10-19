@@ -1,0 +1,12 @@
+reporters:
+  # execution will stop after first successful report
+
+  - runtime: bash
+    execute: |
+      echo "$CHECK_NAME exited with $CHECK_CODE"
+      exit 1
+
+  - runtime: python
+    execute: |
+      print("Output:")
+      print(os.getenv("CHECK_OUTPUT"), end="")

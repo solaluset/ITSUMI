@@ -1,0 +1,10 @@
+checks:
+
+  example-check:
+    interval: 1m
+    retention: 10m
+    # ignore up to X failures during `retention` period
+    max-failures: 1
+    runtime: bash
+    execute: |
+      echo ok

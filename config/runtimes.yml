@@ -1,0 +1,19 @@
+runtimes:
+
+  bash:
+    command:
+      - 'bash'
+      - '-c'
+      # run common.bash, then stdin
+      - 'source config/helpers/common.bash && eval "$(cat)"'
+
+  python:
+    command:
+      - 'python3'
+      - '-c'
+      - |
+        import sys
+
+        namespace = {}
+        exec("from config.helpers.common import *", namespace)
+        namespace["_exec"](sys.stdin.read(), namespace)
