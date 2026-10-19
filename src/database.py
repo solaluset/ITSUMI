@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import TypeVar
 from uuid import UUID, uuid4
 
@@ -16,7 +16,7 @@ class Base(DeclarativeBase, MappedAsDataclass):
 
 
 def current_time() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class Run(MappedAsDataclass):
